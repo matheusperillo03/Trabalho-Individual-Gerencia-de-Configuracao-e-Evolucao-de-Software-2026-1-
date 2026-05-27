@@ -4,6 +4,7 @@ metadata:
   name: postgres
   namespace: mkjs
 spec:
+  type: ClusterIP
   selector:
     app: postgres
   ports:
