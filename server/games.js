@@ -5,7 +5,6 @@ var Messages = {
   PLAYER_CONNECTED: 'player-connected'
 };
 
-
 function Game(id, gameCollection) {
   this._id = id;
   this._gameCollection = gameCollection;
@@ -33,47 +32,36 @@ Game.prototype._addHandlers = function () {
       p2 = this._players[1],
       m = Messages,
       self = this;
-  p1.on(m.EVENT, function (data) {
-    p2.emit(m.EVENT, data);
-  });
-  p1.on(m.LIFE_UPDATE, function (data) {
-    p2.emit(m.LIFE_UPDATE, data);
-  });
-  p1.on(m.POSITION_UPDATE, function (data) {
-    p2.emit(m.POSITION_UPDATE, data);
-  });
-  p2.on(m.EVENT, function (data) {
-    p1.emit(m.EVENT, data);
-  });
-  p2.on(m.LIFE_UPDATE, function (data) {
-    p1.emit(m.LIFE_UPDATE, data);
-  });
-  p2.on(m.POSITION_UPDATE, function (data) {
-    p1.emit(m.POSITION_UPDATE, data);
-  });
-  p1.on('disconnect', function () {
-    self.endGame(0);
-  });
-  p2.on('disconnect', function () {
-    self.endGame(1);
-  });
+  p1.on(m.EVENT, function (data) { p2.emit(m.EVENT, data); });
+  p1.on(m.LIFE_UPDATE, function (data) { p2.emit(m.LIFE_UPDATE, data); });
+  p1.on(m.POSITION_UPDATE, function (data) { p2.emit(m.POSITION_UPDATE, data); });
+  p2.on(m.EVENT, function (data) { p1.emit(m.EVENT, data); });
+  p2.on(m.LIFE_UPDATE, function (data) { p1.emit(m.LIFE_UPDATE, data); });
+  p2.on(m.POSITION_UPDATE, function (data) { p1.emit(m.POSITION_UPDATE, data); });
+  p1.on('disconnect', function () { self.endGame(0); });
+  p2.on('disconnect', function () { self.endGame(1); });
 };
 
 Game.prototype.endGame = function (playerOut) {
   if (!this._players.length) return;
-  var opponent = +!playerOut;
-  opponent = this._players[opponent];
+  var winnerIndex = +!playerOut;
+  var db = this._gameCollection._db;
+  if (db) {
+    db.saveFight(this._id, winnerIndex).catch(console.error);
+  }
+  var winner = this._players[winnerIndex];
   this._players = [];
-  opponent.disconnect();
+  winner.disconnect();
   this._gameCollection.removeGame(this._id);
 };
 
-function GameCollection() {
+function GameCollection(db) {
   this._games = {};
+  this._db = db || null;
 }
 
-GameCollection.prototype.getGame = function (game) {
-  return this._games[game];
+GameCollection.prototype.getGame = function (id) {
+  return this._games[id];
 };
 
 GameCollection.prototype.createGame = function (id) {
