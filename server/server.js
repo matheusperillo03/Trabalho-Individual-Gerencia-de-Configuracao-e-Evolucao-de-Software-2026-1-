@@ -12,6 +12,8 @@ const games = new GameCollection(db);
 
 app.use(express.static(__dirname + '/../game'));
 
+app.get('/healthz', (req, res) => res.json({ status: 'ok' }));
+
 app.get('/api/history', async (req, res) => {
   try {
     const fights = await db.getFights();
