@@ -56,12 +56,16 @@ Game.prototype.endGame = function (playerOut) {
 };
 
 function GameCollection(db) {
-  this._games = {};
+  this._games = Object.create(null);
   this._db = db || null;
 }
 
 GameCollection.prototype.getGame = function (id) {
-  return this._games[id];
+  try {
+    return this._games[id];
+  } catch (e) {
+    return undefined;
+  }
 };
 
 GameCollection.prototype.createGame = function (id) {
@@ -74,11 +78,15 @@ GameCollection.prototype.createGame = function (id) {
 };
 
 GameCollection.prototype.removeGame = function (id) {
-  if (this._games[id]) {
-    delete this._games[id];
-    return true;
+  try {
+    if (this._games[id]) {
+      delete this._games[id];
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
   }
-  return false;
 };
 
 exports.GameCollection = GameCollection;
