@@ -9,6 +9,6 @@ RUN npm install --prefix ./server
 COPY server/ ./server/
 COPY game/ ./game/
 
-EXPOSE 55555
+EXPOSE 3000
 
 CMD ["./server/node_modules/.bin/nodemon", "--legacy-watch", "./server/server.js"]

@@ -61,6 +61,7 @@ db.init().catch((err) => {
   console.warn('Database unavailable:', err.message);
 });
 
-server.listen(55555, () => {
-  console.log('Server running on port 55555');
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
