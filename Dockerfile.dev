@@ -11,4 +11,4 @@ COPY game/ ./game/
 
 EXPOSE 55555
 
-CMD ["./server/node_modules/.bin/nodemon", "./server/server.js"]
+CMD ["./server/node_modules/.bin/nodemon", "--legacy-watch", "./server/server.js"]
