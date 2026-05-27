@@ -65,7 +65,7 @@ GameCollection.prototype.getGame = function (id) {
 };
 
 GameCollection.prototype.createGame = function (id) {
-  if (this._games[game]) {
+  if (this._games[id]) {
     return false;
   }
   var game = new Game(id, this);
