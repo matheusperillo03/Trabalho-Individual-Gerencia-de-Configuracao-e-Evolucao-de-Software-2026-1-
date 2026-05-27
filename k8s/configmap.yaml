@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mkjs-config
+  namespace: mkjs
+data:
+  PORT: "3000"
+  POSTGRES_DB: mkjs
+  POSTGRES_USER: mkjs

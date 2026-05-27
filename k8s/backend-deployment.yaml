@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: mkjs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/matheusperillo03/mkjs-backend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: mkjs-config
+                  key: PORT
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mkjs-secret
+                  key: DATABASE_URL
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
