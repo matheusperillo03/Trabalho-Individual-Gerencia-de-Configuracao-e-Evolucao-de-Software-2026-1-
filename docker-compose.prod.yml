@@ -16,8 +16,8 @@ services:
       context: .
       dockerfile: Dockerfile.prod
     environment:
-      DATABASE_URL: postgresql://mkjs:mkjs@db:5432/mkjs
-      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: ${PORT:-3000}
     depends_on:
       db:
         condition: service_healthy
@@ -25,13 +25,13 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: mkjs
-      POSTGRES_PASSWORD: mkjs
-      POSTGRES_DB: mkjs
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mkjs"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
