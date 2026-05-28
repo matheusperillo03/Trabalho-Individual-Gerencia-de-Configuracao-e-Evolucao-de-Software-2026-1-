@@ -12,6 +12,9 @@ jobs:
   build-push:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout
@@ -47,6 +50,8 @@ jobs:
   deploy:
     needs: [build-push]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -63,8 +68,28 @@ jobs:
           echo "$KUBECONFIG_DATA" > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Apply K8s manifests
-        run: kubectl apply -f k8s/
+      - name: Apply secret from GitHub secrets
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          kubectl create secret generic mkjs-secret \
+            --from-literal=POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+            --from-literal=DATABASE_URL="$DATABASE_URL" \
+            -n mkjs --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Restart deployments
-        run: kubectl rollout restart deployment/backend deployment/nginx -n mkjs
+      - name: Apply K8s manifests
+        run: kubectl apply -f k8s/ --prune=false
+
+      - name: Apply cert-manager resources
+        run: kubectl apply -f k8s/cert-manager/
+
+      - name: Update images to SHA tag
+        run: |
+          kubectl set image deployment/backend backend=ghcr.io/matheusperillo03/mkjs-backend:${{ github.sha }} -n mkjs
+          kubectl set image deployment/nginx nginx=ghcr.io/matheusperillo03/mkjs-nginx:${{ github.sha }} -n mkjs
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/backend -n mkjs --timeout=120s
+          kubectl rollout status deployment/nginx -n mkjs --timeout=120s
