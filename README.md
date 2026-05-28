@@ -160,8 +160,8 @@ O requisito da Fase 4 exige commits sequenciais demonstrando o teste quebrando n
 
 | Commit | Mensagem | Resultado no CI |
 |--------|----------|-----------------|
-| [`b37a21f`](../../commit/b37a21f) | `test: adicionar testes unitários para GameCollection e Game` | ❌ CI falha — bug em `createGame` retornava jogo errado |
-| [`57d6b3e`](../../commit/57d6b3e) | `fix: corrigir verificação de jogo duplicado em GameCollection.createGame` | ✅ CI passa |
+| [`b37a21f`](../../commit/b37a21f) | `test: adicionar testes unitários para GameCollection e Game` | [❌ CI falha](../../actions/runs/26489388583) — bug em `createGame` retornava jogo errado |
+| [`57d6b3e`](../../commit/57d6b3e) | `fix: corrigir verificação de jogo duplicado em GameCollection.createGame` | [✅ CI passa](../../actions/runs/26489488903) |
 
 O bug estava em `games.js` linha 81: `this._games[game]` em vez de `this._games[id]`, fazendo `createGame` nunca detectar duplicatas corretamente.
 
@@ -180,3 +180,5 @@ A solução adotada:
 - **Certificado self-signed**: emitido pelo cert-manager via `selfSigned: {}`, satisfazendo o requisito de HTTPS sem depender de infraestrutura externa
 
 O nginx **não expõe a porta 443** — o TLS termina no nginx-ingress controller. O container nginx serve apenas HTTP interno (porta 80), e o redirecionamento 80→443 é feito pela annotation `nginx.ingress.kubernetes.io/ssl-redirect: "true"` no Ingress.
+
+O pipeline de CD completo (build → push GHCR → deploy no cluster local) pode ser verificado no [histórico de execuções do GitHub Actions](../../actions/workflows/cd.yml). O runner self-hosted executa na (minha) máquina com acesso direto ao cluster Docker Desktop.
