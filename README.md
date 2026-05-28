@@ -19,7 +19,7 @@ O trabalho está dividido em 10 etapas, cada uma valendo **1,0 ponto**. O foco �
 | 5. **CI - Testes de Fuzzing** | Implementação de testes de Fuzzing para validar a resiliência das entradas do servidor (Back-end) contra dados inesperados. | 40% - 50% |
 | 6. **Segurança - SAST & SCA** | Integração de ferramentas de análise estática de segurança (SAST) e verificação de vulnerabilidades em dependências (SCA - ex: Snyk ou npm audit). | 50% - 60% |
 | 7. **Qualidade de Código** | Integração completa com o **SonarCloud** no pipeline de CI, garantindo métricas de qualidade e cobertura mínima. | 60% - 70% |
-| 8. **Containerização (PROD)** | Elaboração de `Dockerfiles` otimizados para produção (multi-stage build, baseados em Alpine) e configuração do **Nginx** como servidor de arquivos estáticos. | 70% - 80% | 
+| 8. **Containerização (PROD)** | Elaboração de `Dockerfiles` otimizados para produção (multi-stage build, baseados em Alpine) e configuração do **Nginx** como servidor de arquivos estáticos. | 70% - 80% |
 | 9. **Infraestrutura (K8s & Terraform)** | Criação de manifestos de **Kubernetes (K8s)** para orquestração da aplicação. Opcionalmente, utilize **Terraform** para provisionar a infraestrutura necessária. | 80% - 90% |
 | 10. **CD & Segurança de Rede** | Deploy Contínuo com publicação de imagens e configuração de **HTTPS via Cert Manager**. O Nginx deve redirecionar porta 80 para 443 e não expor outras portas para fora da rede de containers. | 90% - 100% |
 
@@ -30,4 +30,122 @@ O trabalho está dividido em 10 etapas, cada uma valendo **1,0 ponto**. O foco �
 *   **Modernização:** É responsabilidade do aluno atualizar o `package.json` e as dependências do servidor para garantir compatibilidade com as versões mais recentes do Node.js.
 *   **Documentação:** O `README.md` final deve conter o passo a passo de como subir o ambiente de desenvolvimento e como visualizar o ambiente de produção.
 
-Boa sorte!
+---
+
+## Ambiente de Desenvolvimento
+
+### Pré-requisitos
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e em execução
+
+### Subindo o ambiente
+
+```bash
+# Clone o repositório
+git clone https://github.com/matheusperillo03/Trabalho-Individual-Gerencia-de-Configuracao-e-Evolucao-de-Software-2026-1-.git
+cd Trabalho-Individual-Gerencia-de-Configuracao-e-Evolucao-de-Software-2026-1-
+
+# Suba os containers (backend com hot-reload + Postgres)
+docker compose up
+```
+
+O backend estará disponível em **http://localhost:3000**.
+
+Qualquer alteração nos arquivos de `server/` é refletida automaticamente no container sem precisar reiniciá-lo (hot-reload via nodemon).
+
+### Rodando os testes localmente
+
+```bash
+cd server
+npm ci
+npm test              # testes unitários e fuzzing
+npm run lint          # lint
+npm run test:coverage # cobertura de código
+```
+
+---
+
+## Ambiente de Produção
+
+### Pré-requisitos
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) com **Kubernetes habilitado** (Settings → Kubernetes → Enable Kubernetes)
+- `kubectl` disponível no terminal (incluído no Docker Desktop)
+
+### 1. Instalar nginx-ingress e cert-manager no cluster
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
+
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
+
+# Aguardar os pods ficarem prontos
+kubectl wait --namespace ingress-nginx --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller --timeout=120s
+
+kubectl wait --namespace cert-manager --for=condition=ready pod \
+  --selector=app.kubernetes.io/instance=cert-manager --timeout=120s
+```
+
+### 2. Aplicar os manifestos da aplicação
+
+```bash
+# Namespace, ConfigMap e ClusterIssuer
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/cert-manager/
+
+# Secret com as credenciais (substitua os valores)
+kubectl create secret generic mkjs-secret \
+  --from-literal=POSTGRES_PASSWORD=<senha> \
+  --from-literal=DATABASE_URL=postgresql://mkjs:<senha>@postgres:5432/mkjs \
+  -n mkjs
+
+# Secret para pull de imagens do GHCR
+kubectl create secret docker-registry ghcr-secret \
+  --docker-server=ghcr.io \
+  --docker-username=<seu-usuario-github> \
+  --docker-password=<seu-token-github> \
+  -n mkjs
+
+# Restante dos manifestos (deployments, services, ingress, PVC)
+kubectl apply -f k8s/
+```
+
+### 3. Acessar a aplicação
+
+Aguarde todos os pods ficarem prontos:
+
+```bash
+kubectl get pods -n mkjs
+```
+
+Quando todos estiverem `Running`, acesse no navegador:
+
+```
+https://mkjs.127.0.0.1.nip.io
+```
+
+> O navegador exibirá um aviso de certificado (self-signed). Clique em **Avançado → Continuar** para prosseguir. O redirecionamento HTTP → HTTPS é feito automaticamente.
+
+### Pipeline de CD (deploy automático)
+
+Todo push na branch `main` que passe no CI dispara o pipeline de CD automaticamente:
+
+1. **Build & Push** — imagens Docker publicadas no GHCR com tags `:latest` e `:<sha>`
+2. **Deploy** — `kubectl apply` aplica os manifestos e `rollout restart` força o pull das novas imagens
+3. **Verificação** — `kubectl rollout status` confirma que o deploy foi bem-sucedido
+
+Para que o CD funcione, o repositório precisa dos seguintes secrets configurados em **Settings → Secrets and variables → Actions**:
+
+| Secret | Descrição |
+|--------|-----------|
+| `POSTGRES_PASSWORD` | Senha do banco de dados |
+| `DATABASE_URL` | String de conexão completa do Postgres |
+
+E um **runner self-hosted** rodando na máquina com acesso ao cluster:
+
+```bash
+# Iniciar o runner (na pasta onde foi configurado)
+cd ~/actions-runner && ./run.sh
+```
