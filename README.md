@@ -149,3 +149,34 @@ E um **runner self-hosted** rodando na máquina com acesso ao cluster:
 # Iniciar o runner (na pasta onde foi configurado)
 cd ~/actions-runner && ./run.sh
 ```
+
+---
+
+## Notas Técnicas
+
+### Fase 4 — Ciclo quebrado → passando no CI
+
+O requisito da Fase 4 exige commits sequenciais demonstrando o teste quebrando no CI e depois passando após correção. Os commits relevantes são:
+
+| Commit | Mensagem | Resultado no CI |
+|--------|----------|-----------------|
+| [`b37a21f`](../../commit/b37a21f) | `test: adicionar testes unitários para GameCollection e Game` | ❌ CI falha — bug em `createGame` retornava jogo errado |
+| [`57d6b3e`](../../commit/57d6b3e) | `fix: corrigir verificação de jogo duplicado em GameCollection.createGame` | ✅ CI passa |
+
+O bug estava em `games.js` linha 81: `this._games[game]` em vez de `this._games[id]`, fazendo `createGame` nunca detectar duplicatas corretamente.
+
+### Fase 5 — Descoberta de segurança via Fuzzing
+
+Os testes de fuzzing em `server/tests/games.fuzz.test.js` utilizam `fc.anything()` do fast-check, que gera entradas arbitrárias incluindo vetores de prototype pollution (`__proto__`, `constructor`, `toString`).
+
+O fuzzing confirmou que `GameCollection` é imune a prototype pollution: o objeto `_games` é criado com `Object.create(null)` (`games.js`, linha 56), eliminando a cadeia de protótipo e impedindo que entradas maliciosas contaminem `Object.prototype`.
+
+### Fase 10 — HTTPS local com nip.io e certificado self-signed
+
+Em ambiente de produção real, o `ClusterIssuer` em `k8s/cert-manager/cluster-issuer.yaml` seria configurado com Let's Encrypt (ACME). Para ambiente local com Docker Desktop, não há domínio público registrado, tornando o desafio ACME inviável.
+
+A solução adotada:
+- **nip.io**: serviço DNS público que resolve `mkjs.127.0.0.1.nip.io` diretamente para `127.0.0.1`, dispensando configuração de `/etc/hosts`
+- **Certificado self-signed**: emitido pelo cert-manager via `selfSigned: {}`, satisfazendo o requisito de HTTPS sem depender de infraestrutura externa
+
+O nginx **não expõe a porta 443** — o TLS termina no nginx-ingress controller. O container nginx serve apenas HTTP interno (porta 80), e o redirecionamento 80→443 é feito pela annotation `nginx.ingress.kubernetes.io/ssl-redirect: "true"` no Ingress.
