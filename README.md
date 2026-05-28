@@ -182,3 +182,20 @@ A solução adotada:
 O nginx **não expõe a porta 443** — o TLS termina no nginx-ingress controller. O container nginx serve apenas HTTP interno (porta 80), e o redirecionamento 80→443 é feito pela annotation `nginx.ingress.kubernetes.io/ssl-redirect: "true"` no Ingress.
 
 O pipeline de CD completo (build → push GHCR → deploy no cluster local) pode ser verificado no [histórico de execuções do GitHub Actions](../../actions/workflows/cd.yml). O runner self-hosted executa na (minha) máquina com acesso direto ao cluster Docker Desktop.
+
+### Mutation Testing — por que e qual o score
+
+Cobertura de linha (line coverage) é uma métrica enganosa: é possível atingir 100% de cobertura com testes que não verificam nada, basta chamar o código sem fazer nenhum `expect`. O problema é que esses testes passam mesmo quando o código está errado.
+
+**Mutation testing** resolve isso invertendo a lógica: em vez de medir se o código foi executado pelos testes, ele mede se os testes são capazes de *detectar bugs*. A ferramenta ([Stryker](https://stryker-mutator.io/)) modifica automaticamente o código troca `>` por `>=`, remove condições, inverte booleanos e verifica se a suite de testes falha. Se um mutante "sobrevive" (os testes continuam passando com o código quebrado), os testes são fracos naquele ponto.
+
+**Score obtido: 95.31%** — 61 de 64 mutantes eliminados.
+
+Os 3 mutantes remanescentes estão nos blocos `catch` de `getGame` e `removeGame` em `games.js`. Esses blocos são código defensivo inalcançável, ou seja, acessar uma propriedade em um objeto JavaScript nunca lança exceção, então o caminho do `catch` nunca é executado. Não é um gap de testes, é código morto.
+
+Para rodar localmente:
+
+```bash
+cd server
+npm run test:mutation
+```
