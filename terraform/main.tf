@@ -1,3 +1,4 @@
+# IaC alternativa aos manifestos em k8s/. Use terraform apply OU kubectl apply, nunca os dois no mesmo cluster.
 terraform {
   required_version = ">= 1.5"
   required_providers {
@@ -9,7 +10,7 @@ terraform {
 }
 
 provider "kubernetes" {
-  config_path = var.kubeconfig_path
+  config_path = pathexpand(var.kubeconfig_path)
 }
 
 resource "kubernetes_namespace" "mkjs" {
