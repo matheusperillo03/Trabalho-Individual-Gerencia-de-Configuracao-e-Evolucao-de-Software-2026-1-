@@ -4,16 +4,16 @@ metadata:
   name: mkjs
   namespace: mkjs
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "selfsigned"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - mkjs.example.com
+        - mkjs.127.0.0.1.nip.io
       secretName: mkjs-tls
   rules:
-    - host: mkjs.example.com
+    - host: mkjs.127.0.0.1.nip.io
       http:
         paths:
           - path: /api
