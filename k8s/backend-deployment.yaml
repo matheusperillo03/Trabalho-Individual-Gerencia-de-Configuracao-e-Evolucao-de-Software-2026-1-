@@ -13,9 +13,12 @@ spec:
       labels:
         app: backend
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:
         - name: backend
           image: ghcr.io/matheusperillo03/mkjs-backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           env:

@@ -57,14 +57,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply secret from GitHub secrets
+      - name: Apply secrets from GitHub secrets
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           kubectl create secret generic mkjs-secret \
             --from-literal=POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
             --from-literal=DATABASE_URL="$DATABASE_URL" \
+            -n mkjs --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password="$GHCR_TOKEN" \
             -n mkjs --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply K8s manifests
@@ -73,10 +79,8 @@ jobs:
       - name: Apply cert-manager resources
         run: kubectl apply -f k8s/cert-manager/
 
-      - name: Update images to SHA tag
-        run: |
-          kubectl set image deployment/backend backend=ghcr.io/matheusperillo03/mkjs-backend:${{ github.sha }} -n mkjs
-          kubectl set image deployment/nginx nginx=ghcr.io/matheusperillo03/mkjs-nginx:${{ github.sha }} -n mkjs
+      - name: Rollout restart
+        run: kubectl rollout restart deployment/backend deployment/nginx -n mkjs
 
       - name: Verify rollout
         run: |
