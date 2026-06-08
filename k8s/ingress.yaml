@@ -10,10 +10,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - mkjs.127.0.0.1.nip.io
+        - mkjs.local
       secretName: mkjs-tls
   rules:
-    - host: mkjs.127.0.0.1.nip.io
+    - host: mkjs.local
       http:
         paths:
           - path: /api

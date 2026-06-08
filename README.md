@@ -72,7 +72,15 @@ npm run test:coverage # cobertura de código
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) com **Kubernetes habilitado** (Settings → Kubernetes → Enable Kubernetes)
 - `kubectl` disponível no terminal (incluído no Docker Desktop)
 
-### 1. Instalar nginx-ingress e cert-manager no cluster
+### 1. Configurar DNS local
+
+Adicione a entrada abaixo no arquivo `/etc/hosts` da sua máquina (requer sudo no Linux/macOS ou executar como administrador no Windows):
+
+```bash
+echo "127.0.0.1 mkjs.local" | sudo tee -a /etc/hosts
+```
+
+### 2. Instalar nginx-ingress e cert-manager no cluster
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
@@ -87,7 +95,7 @@ kubectl wait --namespace cert-manager --for=condition=ready pod \
   --selector=app.kubernetes.io/instance=cert-manager --timeout=120s
 ```
 
-### 2. Aplicar os manifestos da aplicação
+### 3. Aplicar os manifestos da aplicação
 
 ```bash
 # Namespace, ConfigMap e ClusterIssuer
@@ -112,7 +120,7 @@ kubectl create secret docker-registry ghcr-secret \
 kubectl apply -f k8s/
 ```
 
-### 3. Acessar a aplicação
+### 4. Acessar a aplicação
 
 Aguarde todos os pods ficarem prontos:
 
@@ -123,7 +131,7 @@ kubectl get pods -n mkjs
 Quando todos estiverem `Running`, acesse no navegador:
 
 ```
-https://mkjs.127.0.0.1.nip.io
+https://mkjs.local
 ```
 
 > O navegador exibirá um aviso de certificado (self-signed). Clique em **Avançado → Continuar** para prosseguir. O redirecionamento HTTP → HTTPS é feito automaticamente.
@@ -171,17 +179,15 @@ Os testes de fuzzing em `server/tests/games.fuzz.test.js` utilizam `fc.anything(
 
 O fuzzing confirmou que `GameCollection` é imune a prototype pollution: o objeto `_games` é criado com `Object.create(null)` (`games.js`, linha 56), eliminando a cadeia de protótipo e impedindo que entradas maliciosas contaminem `Object.prototype`.
 
-### Fase 10 — HTTPS local com nip.io e certificado self-signed
+### Fase 10 — HTTPS local com DNS via /etc/hosts e certificado self-signed
 
-Em ambiente de produção real, o `ClusterIssuer` em `k8s/cert-manager/cluster-issuer.yaml` seria configurado com Let's Encrypt (ACME). Para ambiente local com Docker Desktop, não há domínio público registrado, tornando o desafio ACME inviável.
+A entrada `127.0.0.1 mkjs.local` no `/etc/hosts` resolve o domínio localmente, apontando para o nginx-ingress controller rodando no cluster Docker Desktop. Não é necessário um domínio público nem infraestrutura externa.
 
-A solução adotada:
-- **nip.io**: serviço DNS público que resolve `mkjs.127.0.0.1.nip.io` diretamente para `127.0.0.1`, dispensando configuração de `/etc/hosts`
-- **Certificado self-signed**: emitido pelo cert-manager via `selfSigned: {}`, satisfazendo o requisito de HTTPS sem depender de infraestrutura externa
+O certificado TLS é emitido pelo cert-manager via `selfSigned: {}` no `ClusterIssuer`, satisfazendo o requisito de HTTPS com cert-manager sem depender de uma CA externa como Let's Encrypt.
 
 O nginx **não expõe a porta 443** — o TLS termina no nginx-ingress controller. O container nginx serve apenas HTTP interno (porta 80), e o redirecionamento 80→443 é feito pela annotation `nginx.ingress.kubernetes.io/ssl-redirect: "true"` no Ingress.
 
-O pipeline de CD completo (build → push GHCR → deploy no cluster local) pode ser verificado no [histórico de execuções do GitHub Actions](../../actions/workflows/cd.yml). O runner self-hosted executa na (minha) máquina com acesso direto ao cluster Docker Desktop.
+O pipeline de CD completo (build → push GHCR → deploy no cluster local) pode ser verificado no [histórico de execuções do GitHub Actions](../../actions/workflows/cd.yml). O runner self-hosted executa na máquina do desenvolvedor com acesso direto ao cluster Docker Desktop.
 
 ### Mutation Testing — por que e qual o score
 
